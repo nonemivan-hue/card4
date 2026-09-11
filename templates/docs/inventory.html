@@ -161,6 +161,14 @@ function loadAccountingData() {
                 card_type_id: c.card_type_id,
                 card_type_name: c.card_type_name
             }));
+            // Сортировка по ФИО заявителя
+            accountingLines.sort((a, b) => {
+                const nameA = (a.applicant_name || '').toUpperCase();
+                const nameB = (b.applicant_name || '').toUpperCase();
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                return 0;
+            });
             renderAccountingTable();
         });
 }
@@ -189,6 +197,14 @@ function fillFromAccounting() {
         card_type_id: line.card_type_id,
         card_type_name: line.card_type_name
     }));
+    // Сортировка по ФИО заявителя
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
     renderFactualTable();
     
     // Switch to factual tab
@@ -211,12 +227,28 @@ function addFactualLine() {
         card_type_name: ''
     };
     factualLines.push(newLine);
+    // Сортировка по ФИО заявителя после добавления строки
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
     renderFactualTable();
 }
 
 function removeFactualLine(idx) {
     if (factualLines.length > 1) {
         factualLines.splice(idx, 1);
+        // Сортировка по ФИО заявителя после удаления строки
+        factualLines.sort((a, b) => {
+            const nameA = (a.applicant_name || '').toUpperCase();
+            const nameB = (b.applicant_name || '').toUpperCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
         renderFactualTable();
     }
 }
@@ -246,6 +278,15 @@ function renderFactualTable() {
 
 function updateFactualLine(idx, field, value) {
     factualLines[idx][field] = value;
+    // Сортировка по ФИО заявителя после обновления строки
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    renderFactualTable();
 }
 
 function lookupCard(idx, cardNumber) {
@@ -346,6 +387,15 @@ function checkDiscrepancies() {
                 state: 'surplus'  // Излишек
             });
         }
+    });
+    
+    // Сортировка по ФИО заявителя
+    discrepanciesLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
     });
     
     renderDiscrepanciesTable();

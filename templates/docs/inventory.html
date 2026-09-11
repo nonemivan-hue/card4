@@ -545,6 +545,7 @@ function createPrintDocument() {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/docs/inventory/create_print';
+    form.target = '_blank';
     
     const dataInput = document.createElement('input');
     dataInput.type = 'hidden';

@@ -184,6 +184,14 @@
                 <button type="submit" class="btn btn-success">
                     <i class="bi bi-save"></i> Записать
                 </button>
+                <button type="button" class="btn btn-primary" onclick="postDocument()">
+                    <i class="bi bi-check-circle"></i> Провести
+                </button>
+                {% if doc and doc.id %}
+                <a href="{{ url_for('doc_print_form', doc_id=doc.id, form_type='inventory') }}" class="btn btn-outline-secondary" target="_blank">
+                    <i class="bi bi-printer"></i> Печать
+                </a>
+                {% endif %}
                 <a href="{{ url_for('docs_journal') }}" class="btn btn-outline-secondary">Отмена</a>
             </div>
         </form>

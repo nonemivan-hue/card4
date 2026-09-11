@@ -30,6 +30,7 @@ from app.models import (
     get_employees, get_employee_by_id, get_employee_by_login, check_permission,
     get_documents, get_document_by_id, post_document, delete_document,
     get_cards_report_as_of, get_period_report, get_period_report_detail, get_edo_report, get_summary_report, get_stock_report, get_cards_as_of_report, get_unissued_cards_report,
+    get_constants, get_organization_name,
     CARD_STATUSES, DOCUMENT_TYPES, REPORT_STATUSES, log_action, now_iso
 )
 from app.card_reader import read_card_number, test_reader_connection, get_available_readers
@@ -607,6 +608,8 @@ def doc_create(doc_type):
             accounting_lines = json.loads(request.form.get("accounting_lines", "[]"))
             factual_lines = json.loads(request.form.get("factual_lines", "[]"))
             discrepancies_lines = json.loads(request.form.get("discrepancies_lines", "[]"))
+            commission_chairman = request.form.get("commission_chairman", "")
+            commission_members = json.loads(request.form.get("commission_members", "[]"))
             
             doc = insert("documents", {
                 "doc_type": doc_type,
@@ -620,6 +623,8 @@ def doc_create(doc_type):
                     "factual": factual_lines,
                     "discrepancies": discrepancies_lines
                 },
+                "commission_chairman": commission_chairman,
+                "commission_members": commission_members,
                 "status": "draft",
                 "created_by": session.get("user_id"),
                 "created_at": now_iso()
@@ -627,10 +632,13 @@ def doc_create(doc_type):
             flash("Документ инвентаризации создан", "success")
             return redirect(url_for("doc_edit", doc_id=doc["id"]))
         
+        organization_name = get_organization_name()
         return render_template("docs/inventory.html",
                                doc_type=doc_type,
                                doc_type_name=DOCUMENT_TYPES[doc_type],
-                               current_date=datetime.now().strftime("%Y-%m-%d"))
+                               current_date=datetime.now().strftime("%Y-%m-%d"),
+                               organization_name=organization_name,
+                               employees=get_employees())
 
     if request.method == "POST" and "doc_date" in request.form:
         lines = []

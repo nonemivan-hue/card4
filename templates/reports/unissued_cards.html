@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Остатки не выданных карт{% endblock %}
+{% block page_title %}Остатки не выданных карт{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Карты со статусом "Готова к выдаче"</h5>
+            <a href="{{ url_for('export_unissued_cards') }}" class="btn btn-success btn-sm">
+                <i class="bi bi-file-earmark-excel"></i> Сохранить в Excel
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>ФИО владельца</th>
+                        <th>Номер карты</th>
+                        <th>Вид карты</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if report %}
+                        {% for row in report %}
+                        <tr>
+                            <td>{{ row.owner_name }}</td>
+                            <td>{{ row.card_number }}</td>
+                            <td>{{ row.card_type_name }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">Нет карт со статусом "Готова к выдаче"</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

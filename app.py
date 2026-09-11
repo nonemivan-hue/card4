@@ -650,6 +650,7 @@ def doc_create(doc_type):
         
         organization_name = get_organization_name()
         return render_template("docs/inventory.html",
+                               doc=None,
                                doc_type=doc_type,
                                doc_type_name=DOCUMENT_TYPES[doc_type],
                                current_date=datetime.now().strftime("%Y-%m-%d"),

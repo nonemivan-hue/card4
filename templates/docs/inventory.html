@@ -145,9 +145,27 @@ let accountingLines = [];
 let factualLines = [];
 let discrepanciesLines = [];
 
+// Check if we have existing data from the server (edit mode)
+{% if accounting_lines %}
+accountingLines = {{ accounting_lines | tojson }};
+{% endif %}
+{% if factual_lines %}
+factualLines = {{ factual_lines | tojson }};
+{% endif %}
+{% if discrepancies_lines %}
+discrepanciesLines = {{ discrepancies_lines | tojson }};
+{% endif %}
+
 // Load accounting data on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // If we don't have existing data, load from API
+    {% if not accounting_lines %}
     loadAccountingData();
+    {% else %}
+    renderAccountingTable();
+    renderFactualTable();
+    renderDiscrepanciesTable();
+    {% endif %}
 });
 
 function loadAccountingData() {

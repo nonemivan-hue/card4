@@ -602,6 +602,31 @@ def doc_create(doc_type):
 
     # Special handling for inventory document type
     if doc_type == "inventory":
+        if request.method == "POST":
+            # Handle inventory document save
+            accounting_lines = json.loads(request.form.get("accounting_lines", "[]"))
+            factual_lines = json.loads(request.form.get("factual_lines", "[]"))
+            discrepancies_lines = json.loads(request.form.get("discrepancies_lines", "[]"))
+            
+            doc = insert("documents", {
+                "doc_type": doc_type,
+                "doc_number": request.form.get("doc_number") or get_next_number(DOC_PREFIXES.get(doc_type, "DOC")),
+                "doc_date": request.form.get("doc_date", datetime.now().strftime("%Y-%m-%d")),
+                "organization_id": request.form.get("organization_id", ""),
+                "mfc_id": request.form.get("mfc_id", ""),
+                "employee_id": request.form.get("employee_id", ""),
+                "lines": {
+                    "accounting": accounting_lines,
+                    "factual": factual_lines,
+                    "discrepancies": discrepancies_lines
+                },
+                "status": "draft",
+                "created_by": session.get("user_id"),
+                "created_at": now_iso()
+            })
+            flash("Документ инвентаризации создан", "success")
+            return redirect(url_for("doc_edit", doc_id=doc["id"]))
+        
         return render_template("docs/inventory.html",
                                doc_type=doc_type,
                                doc_type_name=DOCUMENT_TYPES[doc_type],
@@ -663,6 +688,58 @@ def doc_edit(doc_id):
     if is_issue_user() and doc.get("doc_type") != "issue":
         flash("Доступ запрещен", "danger")
         return redirect(url_for("docs_journal"))
+
+    # Special handling for inventory document type
+    if doc.get("doc_type") == "inventory":
+        if request.method == "POST":
+            accounting_lines = json.loads(request.form.get("accounting_lines", "[]"))
+            factual_lines = json.loads(request.form.get("factual_lines", "[]"))
+            discrepancies_lines = json.loads(request.form.get("discrepancies_lines", "[]"))
+            
+            update("documents", lambda d: d.get("id") == doc_id, {
+                "doc_number": request.form.get("doc_number", doc.get("doc_number")),
+                "doc_date": request.form.get("doc_date", doc.get("doc_date")),
+                "organization_id": request.form.get("organization_id", doc.get("organization_id")),
+                "mfc_id": request.form.get("mfc_id", doc.get("mfc_id")),
+                "employee_id": request.form.get("employee_id", doc.get("employee_id")),
+                "lines": {
+                    "accounting": accounting_lines,
+                    "factual": factual_lines,
+                    "discrepancies": discrepancies_lines
+                },
+                "updated_at": now_iso()
+            })
+            flash("Документ инвентаризации сохранен", "success")
+            return redirect(url_for("doc_edit", doc_id=doc_id))
+        
+        card_types = get_card_types()
+        ct_map = {ct["id"]: ct for ct in card_types}
+        organizations = get_organizations()
+        mfcs = get_mfcs()
+        employees = get_employees()
+        cards = get_cards()
+        author = get_employee_by_id(doc.get("created_by")) if doc.get("created_by") else None
+        
+        # Get lines from the nested structure
+        lines_data = doc.get("lines", {})
+        accounting_lines = lines_data.get("accounting", []) if isinstance(lines_data, dict) else []
+        factual_lines = lines_data.get("factual", []) if isinstance(lines_data, dict) else []
+        discrepancies_lines = lines_data.get("discrepancies", []) if isinstance(lines_data, dict) else []
+        
+        return render_template("docs/inventory.html",
+                               doc=doc,
+                               doc_type_name=DOCUMENT_TYPES.get(doc.get("doc_type"), ""),
+                               card_types=card_types,
+                               ct_map=ct_map,
+                               organizations=organizations,
+                               mfcs=mfcs,
+                               employees=employees,
+                               cards=cards,
+                               author=author,
+                               accounting_lines=accounting_lines,
+                               factual_lines=factual_lines,
+                               discrepancies_lines=discrepancies_lines,
+                               current_date=doc.get("doc_date", datetime.now().strftime("%Y-%m-%d")))
 
     if request.method == "POST":
         lines = []

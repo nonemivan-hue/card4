@@ -527,7 +527,7 @@ function createIssueDocument() {
     const inventoryIdInput = document.createElement('input');
     inventoryIdInput.type = 'hidden';
     inventoryIdInput.name = 'inventory_id';
-    inventoryIdInput.value = '{{ doc.id }}';
+    inventoryIdInput.value = '{{ doc.id if doc else "" }}';
     form.appendChild(inventoryIdInput);
     
     document.body.appendChild(form);
@@ -555,7 +555,7 @@ function createPrintDocument() {
     const inventoryIdInput = document.createElement('input');
     inventoryIdInput.type = 'hidden';
     inventoryIdInput.name = 'inventory_id';
-    inventoryIdInput.value = '{{ doc.id }}';
+    inventoryIdInput.value = '{{ doc.id if doc else "" }}';
     form.appendChild(inventoryIdInput);
     
     document.body.appendChild(form);
@@ -585,7 +585,7 @@ function addCommissionMember() {
     div.className = 'input-group mb-2';
     
     // Get existing members for pre-selection
-    const existingMembers = {{ doc.get('commission_members', []) | tojson }} || [];
+    const existingMembers = {{ (doc.get('commission_members', []) if doc else []) | tojson }} || [];
     const isSelected = existingMembers.includes('new_member_' + commissionMemberCount);
     
     div.innerHTML = `
@@ -692,7 +692,7 @@ document.getElementById('inventoryForm').addEventListener('submit', function(e) 
 
 // Post document function
 function postDocument() {
-    const docId = '{{ doc.id }}';
+    const docId = '{{ doc.id if doc else "" }}';
     if (!docId || docId === '') {
         flashMessage('Сначала сохраните документ', 'warning');
         return;

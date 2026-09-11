@@ -16,10 +16,15 @@
                 </div>
             </div>
 
-            <!-- Tabs Navigation -->
+            <!-- Commission Tab -->
             <ul class="nav nav-tabs mb-3" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-accounting" type="button">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-commission" type="button">
+                        Комиссия
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-accounting" type="button">
                         1. По данным комплекса
                     </button>
                 </li>
@@ -37,8 +42,58 @@
 
             <!-- Tab Content -->
             <div class="tab-content">
+                <!-- Tab: Commission -->
+                <div class="tab-pane fade show active" id="tab-commission" role="tabpanel">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Наименование учреждения</label>
+                            <input type="text" class="form-control" id="organization_name_display" readonly value="{{ organization_name }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Председатель комиссии</label>
+                            <select class="form-select" id="commission_chairman" name="commission_chairman">
+                                <option value="">Не выбран</option>
+                                {% for emp in employees %}
+                                <option value="{{ emp.id }}" {{ 'selected' if doc and doc.get('commission_chairman') == emp.id else '' }}>{{ emp.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Члены комиссии (от 2 до 5)</label>
+                            <div id="commission_members_container">
+                                <div class="input-group mb-2">
+                                    <select class="form-select commission-member-select" name="commission_member_1">
+                                        <option value="">Выберите члена комиссии</option>
+                                        {% for emp in employees %}
+                                        <option value="{{ emp.id }}" {{ 'selected' if doc and doc.get('commission_members') and emp.id in doc.get('commission_members', []) else '' }}>{{ emp.full_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="removeCommissionMember(this)">Удалить</button>
+                                </div>
+                                <div class="input-group mb-2">
+                                    <select class="form-select commission-member-select" name="commission_member_2">
+                                        <option value="">Выберите члена комиссии</option>
+                                        {% for emp in employees %}
+                                        <option value="{{ emp.id }}">{{ emp.full_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="removeCommissionMember(this)">Удалить</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addCommissionMember()">
+                                <i class="bi bi-plus-lg"></i> Добавить члена комиссии
+                            </button>
+                            <div id="commission_members_error" class="text-danger mt-2" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab 1: Accounting Data -->
-                <div class="tab-pane fade show active" id="tab-accounting" role="tabpanel">
+                <div class="tab-pane fade" id="tab-accounting" role="tabpanel">
                     <div class="d-flex justify-content-between mb-2">
                         <h6 class="mb-0">Карты по данным учета (статус "Готова к выдаче")</h6>
                         <button type="button" class="btn btn-sm btn-primary" onclick="fillFromAccounting()">
@@ -496,14 +551,103 @@ function flashMessage(message, type) {
     setTimeout(() => alertDiv.remove(), 3000);
 }
 
+// Commission members management
+let commissionMemberCount = 2;
+
+function addCommissionMember() {
+    if (commissionMemberCount >= 5) {
+        flashMessage('Максимум 5 членов комиссии', 'warning');
+        return;
+    }
+    commissionMemberCount++;
+    const container = document.getElementById('commission_members_container');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <select class="form-select commission-member-select" name="commission_member_${commissionMemberCount}">
+            <option value="">Выберите члена комиссии</option>
+            {% for emp in employees %}
+            <option value="{{ emp.id }}">{{ emp.full_name }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" class="btn btn-outline-secondary" onclick="removeCommissionMember(this)">Удалить</button>
+    `;
+    container.appendChild(div);
+}
+
+function removeCommissionMember(btn) {
+    const selects = document.querySelectorAll('.commission-member-select');
+    if (selects.length <= 2) {
+        flashMessage('Минимум 2 члена комиссии', 'warning');
+        return;
+    }
+    btn.parentElement.remove();
+    commissionMemberCount--;
+}
+
+function getCommissionMembers() {
+    const selects = document.querySelectorAll('.commission-member-select');
+    const members = [];
+    selects.forEach(sel => {
+        if (sel.value) {
+            members.push(sel.value);
+        }
+    });
+    return members;
+}
+
+function validateCommission() {
+    const chairman = document.getElementById('commission_chairman').value;
+    const members = getCommissionMembers();
+    const errorDiv = document.getElementById('commission_members_error');
+    
+    if (!chairman) {
+        errorDiv.textContent = 'Председатель комиссии не выбран';
+        errorDiv.style.display = 'block';
+        return false;
+    }
+    
+    if (members.length < 2) {
+        errorDiv.textContent = 'Должно быть от 2 до 5 членов комиссии';
+        errorDiv.style.display = 'block';
+        return false;
+    }
+    
+    if (members.length > 5) {
+        errorDiv.textContent = 'Максимум 5 членов комиссии';
+        errorDiv.style.display = 'block';
+        return false;
+    }
+    
+    // Check if chairman is also in members
+    if (members.includes(chairman)) {
+        errorDiv.textContent = 'Председатель комиссии не может быть членом комиссии';
+        errorDiv.style.display = 'block';
+        return false;
+    }
+    
+    errorDiv.style.display = 'none';
+    return true;
+}
+
 // Document form submission
 document.getElementById('inventoryForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    
+    // Validate commission
+    if (!validateCommission()) {
+        // Switch to commission tab
+        const tabTrigger = new bootstrap.Tab(document.querySelector('[data-bs-target="#tab-commission"]'));
+        tabTrigger.show();
+        return;
+    }
     
     const formData = new FormData(this);
     formData.set('accounting_lines', JSON.stringify(accountingLines));
     formData.set('factual_lines', JSON.stringify(factualLines));
     formData.set('discrepancies_lines', JSON.stringify(discrepanciesLines));
+    formData.set('commission_chairman', document.getElementById('commission_chairman').value);
+    formData.set('commission_members', JSON.stringify(getCommissionMembers()));
     
     fetch(window.location.pathname, {
         method: 'POST',

@@ -646,3 +646,18 @@ def get_cards_as_of_report(as_of_date=None):
         report.append(result[ct_id])
     
     return report
+
+
+# ============== CONSTANTS ==============
+def get_constants():
+    """Get constants data."""
+    const_list = load_all("constants")
+    if const_list:
+        return const_list[0]
+    return {}
+
+
+def get_organization_name():
+    """Get organization name from constants."""
+    const = get_constants()
+    return const.get("organization_name", "Организация не указана")

@@ -524,6 +524,12 @@ function createIssueDocument() {
     dataInput.value = JSON.stringify(missingCards);
     form.appendChild(dataInput);
     
+    const inventoryIdInput = document.createElement('input');
+    inventoryIdInput.type = 'hidden';
+    inventoryIdInput.name = 'inventory_id';
+    inventoryIdInput.value = '{{ doc.id }}';
+    form.appendChild(inventoryIdInput);
+    
     document.body.appendChild(form);
     form.submit();
 }
@@ -545,6 +551,12 @@ function createPrintDocument() {
     dataInput.name = 'lines';
     dataInput.value = JSON.stringify(surplusCards);
     form.appendChild(dataInput);
+    
+    const inventoryIdInput = document.createElement('input');
+    inventoryIdInput.type = 'hidden';
+    inventoryIdInput.name = 'inventory_id';
+    inventoryIdInput.value = '{{ doc.id }}';
+    form.appendChild(inventoryIdInput);
     
     document.body.appendChild(form);
     form.submit();
@@ -571,6 +583,11 @@ function addCommissionMember() {
     const container = document.getElementById('commission_members_container');
     const div = document.createElement('div');
     div.className = 'input-group mb-2';
+    
+    // Get existing members for pre-selection
+    const existingMembers = {{ doc.get('commission_members', []) | tojson }} || [];
+    const isSelected = existingMembers.includes('new_member_' + commissionMemberCount);
+    
     div.innerHTML = `
         <select class="form-select commission-member-select" name="commission_member_${commissionMemberCount}">
             <option value="">Выберите члена комиссии</option>
@@ -672,6 +689,29 @@ document.getElementById('inventoryForm').addEventListener('submit', function(e) 
         flashMessage('Ошибка сохранения: ' + err.message, 'danger');
     });
 });
+
+// Post document function
+function postDocument() {
+    const docId = '{{ doc.id }}';
+    if (!docId || docId === '') {
+        flashMessage('Сначала сохраните документ', 'warning');
+        return;
+    }
+    
+    fetch('/docs/post/' + docId, {
+        method: 'POST'
+    })
+    .then(r => {
+        if (r.ok) {
+            window.location.reload();
+        } else {
+            return r.text().then(text => { throw new Error(text); });
+        }
+    })
+    .catch(err => {
+        flashMessage('Ошибка проведения: ' + err.message, 'danger');
+    });
+}
 </script>
 
 <!-- Card picker modal (reuse from create.html) -->

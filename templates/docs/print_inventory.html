@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Печатная форма: Инвентаризация №{{ doc.doc_number }} от {{ doc.doc_date }}{% endblock %}
+{% block page_title %}Инвентаризация карт к выдаче{% endblock %}
+
+{% block content %}
+<div class="card no-print">
+    <div class="card-body">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer"></i> Печать
+        </button>
+        <a href="{{ url_for('doc_edit', doc_id=doc.id) }}" class="btn btn-outline-secondary">Назад к документу</a>
+    </div>
+</div>
+
+<div class="print-content mt-3">
+    <!-- Титульный лист -->
+    <div class="page-break">
+        <h3 class="text-center mb-4">ИНВЕНТАРИЗАЦИЯ КАРТ К ВЫДАЧЕ</h3>
+        <p class="text-center">№ {{ doc.doc_number }} от {{ doc.doc_date | format_date_long }}</p>
+        
+        <div class="mt-5">
+            <p><strong>Наименование организации:</strong> {{ organization_name }}</p>
+        </div>
+        
+        {% if commission_chairman or commission_members %}
+        <div class="mt-4">
+            <p><strong>Комиссия в составе:</strong></p>
+            {% if commission_chairman %}
+            <p>Председатель комиссии: {{ commission_chairman.full_name }}</p>
+            {% endif %}
+            
+            {% if commission_members and commission_members|length > 0 %}
+            <p>Члены комиссии:</p>
+            <ol>
+                {% for member in commission_members %}
+                <li>{{ member.full_name }}</li>
+                {% endfor %}
+            </ol>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 1 Раздел -->
+    <div class="page-break mt-5">
+        <h4 class="mb-3">1 Раздел. Перечень карт по данным учета:</h4>
+        <table class="table table-bordered table-sm">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">№ п/п</th>
+                    <th>Номер карты</th>
+                    <th>Вид карты</th>
+                    <th>ФИО владельца (при наличии)</th>
+                    <th style="width: 80px;">Кол-во</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set counter = namespace(value=0) %}
+                {% set total = namespace(value=0) %}
+                {% for line in accounting_lines %}
+                {% set counter.value = counter.value + 1 %}
+                {% set total.value = total.value + 1 %}
+                <tr>
+                    <td>{{ counter.value }}</td>
+                    <td>{{ line.card_number }}</td>
+                    <td>{{ line.card_type_name }}</td>
+                    <td>{{ line.applicant_name or '' }}</td>
+                    <td class="text-center">1</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                    <td class="text-center"><strong>{{ total.value }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div class="mt-4">
+            <p>Ответственное лицо: ____________________ / ____________________ /</p>
+        </div>
+    </div>
+
+    <!-- 2 Раздел -->
+    <div class="page-break mt-5">
+        <h4 class="mb-3">2 Раздел. Перечень карт по фактическому наличию:</h4>
+        <table class="table table-bordered table-sm">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">№ п/п</th>
+                    <th>Номер карты</th>
+                    <th>Вид карты</th>
+                    <th>ФИО владельца (при наличии)</th>
+                    <th style="width: 80px;">Кол-во</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set counter = namespace(value=0) %}
+                {% set total = namespace(value=0) %}
+                {% for line in factual_lines %}
+                {% set counter.value = counter.value + 1 %}
+                {% set total.value = total.value + 1 %}
+                <tr>
+                    <td>{{ counter.value }}</td>
+                    <td>{{ line.card_number }}</td>
+                    <td>{{ line.card_type_name }}</td>
+                    <td>{{ line.applicant_name or '' }}</td>
+                    <td class="text-center">1</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                    <td class="text-center"><strong>{{ total.value }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div class="mt-4">
+            <p>Ответственное лицо: ____________________ / ____________________ /</p>
+        </div>
+    </div>
+
+    <!-- 3 Раздел -->
+    <div class="page-break mt-5">
+        <h4 class="mb-3">3 Раздел. Расхождения учета и фактического наличия:</h4>
+        <table class="table table-bordered table-sm">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">№ п/п</th>
+                    <th>Номер карты</th>
+                    <th>Вид карты</th>
+                    <th>ФИО владельца (при наличии)</th>
+                    <th style="width: 100px;">Излишек</th>
+                    <th style="width: 100px;">Недостача</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set counter = namespace(value=0) %}
+                {% set surplus_total = namespace(value=0) %}
+                {% set missing_total = namespace(value=0) %}
+                {% for line in discrepancies_lines %}
+                {% set counter.value = counter.value + 1 %}
+                <tr>
+                    <td>{{ counter.value }}</td>
+                    <td>{{ line.card_number }}</td>
+                    <td>{{ line.card_type_name }}</td>
+                    <td>{{ line.applicant_name or '' }}</td>
+                    <td class="text-center">{% if line.state == 'surplus' %}1{% set surplus_total.value = surplus_total.value + 1 %}{% endif %}</td>
+                    <td class="text-center">{% if line.state == 'missing' %}1{% set missing_total.value = missing_total.value + 1 %}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                    <td class="text-center"><strong>{{ surplus_total.value }}</strong></td>
+                    <td class="text-center"><strong>{{ missing_total.value }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div class="mt-4">
+            <p>Ответственное лицо: ____________________ / ____________________ /</p>
+        </div>
+    </div>
+
+    <!-- 4 Раздел -->
+    <div class="page-break mt-5">
+        <h4 class="mb-3">4 Раздел. Результаты инвентаризации:</h4>
+        
+        {% if discrepancies_lines|length == 0 %}
+        <p class="mt-3">В результате инвентаризации расхождения не обнаружены.</p>
+        {% else %}
+        <p class="mt-3">Обнаружены следующие расхождения:</p>
+        
+        {% set surplus_count = 0 %}
+        {% set missing_count = 0 %}
+        {% for line in discrepancies_lines %}
+            {% if line.state == 'surplus' %}{% set surplus_count = surplus_count + 1 %}{% endif %}
+            {% if line.state == 'missing' %}{% set missing_count = missing_count + 1 %}{% endif %}
+        {% endfor %}
+        
+        {% if surplus_count > 0 %}
+        <p>В учете не числятся (излишек): <strong>{{ surplus_count }}</strong> карт(ы)</p>
+        {% endif %}
+        
+        {% if missing_count > 0 %}
+        <p>Карта выдана, но не отражена в учетной программе (недостача): <strong>{{ missing_count }}</strong> карт(ы)</p>
+        {% endif %}
+        {% endif %}
+        
+        <div class="mt-5">
+            <p><strong>Подписи членов комиссии:</strong></p>
+            
+            {% if commission_chairman %}
+            <div class="mt-3">
+                <p>Председатель: ____________________ / {{ commission_chairman.full_name }} /</p>
+            </div>
+            {% endif %}
+            
+            {% if commission_members and commission_members|length > 0 %}
+            <div class="mt-3">
+                <p>Члены комиссии:</p>
+                <ol>
+                    {% for member in commission_members %}
+                    <li>____________________ / {{ member.full_name }} /</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print { display: none !important; }
+    .page-break { page-break-after: always; }
+    body { font-size: 12pt; }
+    table { font-size: 11pt; }
+}
+.page-break { 
+    page-break-after: always; 
+    min-height: 50vh;
+}
+.print-content {
+    background: white;
+    padding: 20px;
+}
+</style>
+{% endblock %}

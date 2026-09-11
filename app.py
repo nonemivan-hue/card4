@@ -38,6 +38,22 @@ from app.card_reader import read_card_number, test_reader_connection, get_availa
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "transport_cards_secret_key_change_in_production"
 
+# Custom Jinja2 filter for date formatting
+@app.template_filter('format_date_long')
+def format_date_long_filter(date_str):
+    """Format date as DD.MMMM.GGGG (e.g., 11.Сентябрь.2026)"""
+    if not date_str:
+        return ""
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        months = {
+            1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь",
+            7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
+        }
+        return f"{dt.day:02d}.{months[dt.month]}.{dt.year}"
+    except:
+        return date_str
+
 # Document number prefixes by type
 DOC_PREFIXES = {
     "receipt": "ПР",
@@ -703,6 +719,9 @@ def doc_edit(doc_id):
             accounting_lines = json.loads(request.form.get("accounting_lines", "[]"))
             factual_lines = json.loads(request.form.get("factual_lines", "[]"))
             discrepancies_lines = json.loads(request.form.get("discrepancies_lines", "[]"))
+            commission_chairman = request.form.get("commission_chairman", "")
+            commission_members_raw = request.form.get("commission_members", "[]")
+            commission_members = json.loads(commission_members_raw) if commission_members_raw else []
             
             update("documents", lambda d: d.get("id") == doc_id, {
                 "doc_number": request.form.get("doc_number", doc.get("doc_number")),
@@ -715,6 +734,9 @@ def doc_edit(doc_id):
                     "factual": factual_lines,
                     "discrepancies": discrepancies_lines
                 },
+                "commission_chairman": commission_chairman,
+                "commission_members": commission_members,
+                "status": request.form.get("status", doc.get("status", "draft")),
                 "updated_at": now_iso()
             })
             flash("Документ инвентаризации сохранен", "success")
@@ -825,6 +847,94 @@ def doc_delete_route(doc_id):
     return redirect(url_for("docs_journal"))
 
 
+# ============== INVENTORY DOCUMENT ACTIONS ==============
+@app.route("/docs/inventory/create_issue", methods=["POST"])
+@login_required
+def inventory_create_issue():
+    """Create issue document from inventory discrepancies (missing cards)"""
+    lines_data = request.form.get("lines", "[]")
+    lines = json.loads(lines_data) if lines_data else []
+    
+    if not lines:
+        flash("Нет данных для создания документа выдачи", "warning")
+        return redirect(url_for("docs_journal"))
+    
+    # Create issue document
+    doc = insert("documents", {
+        "doc_type": "issue",
+        "doc_number": get_next_number(DOC_PREFIXES.get("issue", "Выд")),
+        "doc_date": datetime.now().strftime("%Y-%m-%d"),
+        "organization_id": "",
+        "mfc_id": "",
+        "employee_id": "",
+        "lines": lines,
+        "status": "draft",
+        "created_by": session.get("user_id"),
+        "created_at": now_iso(),
+        "source_inventory_id": request.form.get("inventory_id", "")
+    })
+    flash("Документ выдачи карт создан", "success")
+    return redirect(url_for("doc_edit", doc_id=doc["id"]))
+
+
+@app.route("/docs/inventory/create_print", methods=["POST"])
+@login_required
+def inventory_create_print():
+    """Create print document from inventory discrepancies (surplus cards)"""
+    lines_data = request.form.get("lines", "[]")
+    lines = json.loads(lines_data) if lines_data else []
+    
+    if not lines:
+        flash("Нет данных для создания документа печати", "warning")
+        return redirect(url_for("docs_journal"))
+    
+    # Filter lines based on card status
+    filtered_lines = []
+    cards = get_cards()
+    card_map = {c["card_number"]: c for c in cards}
+    
+    for line in lines:
+        card_num = line.get("card_number", "")
+        card = card_map.get(card_num)
+        
+        if not card:
+            # Card not found in system - skip with message
+            flash(f"Карта {card_num} не числится в системе", "warning")
+            continue
+        
+        card_status = card.get("status", "")
+        if card_status == "issued":
+            # Card already issued - skip
+            continue
+        elif card_status == "ready_to_print":
+            # Card ready to print - include
+            filtered_lines.append(line)
+        else:
+            # Other statuses - skip
+            continue
+    
+    if not filtered_lines:
+        flash("Нет карт со статусом 'Готова к печати' для создания документа", "info")
+        return redirect(url_for("docs_journal"))
+    
+    # Create print document
+    doc = insert("documents", {
+        "doc_type": "print",
+        "doc_number": get_next_number(DOC_PREFIXES.get("print", "Печ")),
+        "doc_date": datetime.now().strftime("%Y-%m-%d"),
+        "organization_id": "",
+        "mfc_id": "",
+        "employee_id": "",
+        "lines": filtered_lines,
+        "status": "draft",
+        "created_by": session.get("user_id"),
+        "created_at": now_iso(),
+        "source_inventory_id": request.form.get("inventory_id", "")
+    })
+    flash("Документ печати карт создан", "success")
+    return redirect(url_for("doc_edit", doc_id=doc["id"]))
+
+
 # ============== PRINT FORMS ==============
 @app.route("/docs/print/<doc_id>/<form_type>")
 @login_required
@@ -844,6 +954,39 @@ def doc_print_form(doc_id, form_type):
     const_list = load_all("constants")
     our_org = const_list[0].get("organization_name", "ООО Транспортные Карты") if const_list else "ООО Транспортные Карты"
     author = get_employee_by_id(doc.get("created_by")) if doc.get("created_by") else None
+
+    # Special handling for inventory document print form
+    if doc.get("doc_type") == "inventory":
+        lines_data = doc.get("lines", {})
+        accounting_lines = lines_data.get("accounting", []) if isinstance(lines_data, dict) else []
+        factual_lines = lines_data.get("factual", []) if isinstance(lines_data, dict) else []
+        discrepancies_lines = lines_data.get("discrepancies", []) if isinstance(lines_data, dict) else []
+        
+        # Get commission data
+        commission_chairman = None
+        commission_members_list = []
+        
+        chairman_id = doc.get("commission_chairman", "")
+        if chairman_id:
+            commission_chairman = get_employee_by_id(chairman_id)
+        
+        member_ids = doc.get("commission_members", [])
+        if member_ids:
+            for mid in member_ids:
+                member = get_employee_by_id(mid)
+                if member:
+                    commission_members_list.append(member)
+        
+        organization_name = our_org
+        
+        return render_template("docs/print_inventory.html",
+                               doc=doc,
+                               organization_name=organization_name,
+                               commission_chairman=commission_chairman,
+                               commission_members=commission_members_list,
+                               accounting_lines=accounting_lines,
+                               factual_lines=factual_lines,
+                               discrepancies_lines=discrepancies_lines)
 
     # Enrich lines with card data
     enriched_lines = []

@@ -24,7 +24,8 @@ DOCUMENT_TYPES = {
     "issue": "Выдача карт",
     "transfer_mfc": "Передача в МФЦ",
     "transfer_region": "Передача в другой регион",
-    "return_mfc": "Возврат из МФЦ"
+    "return_mfc": "Возврат из МФЦ",
+    "inventory": "Инвентаризация карт к выдаче"
 }
 
 REPORT_STATUSES = [

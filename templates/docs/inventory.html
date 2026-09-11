@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% block title %}{{ doc_type_name }}{% endblock %}
+{% block page_title %}{{ doc_type_name }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST" id="inventoryForm">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Номер документа</label>
+                    <input type="text" name="doc_number" class="form-control" placeholder="Будет присвоен автоматически">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Дата документа</label>
+                    <input type="date" name="doc_date" class="form-control" value="{{ current_date }}">
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-accounting" type="button">
+                        1. По данным комплекса
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-factual" type="button">
+                        2. По фактическому наличию
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-discrepancies" type="button">
+                        3. Расхождения
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Tab 1: Accounting Data -->
+                <div class="tab-pane fade show active" id="tab-accounting" role="tabpanel">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Карты по данным учета (статус "Готова к выдаче")</h6>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="fillFromAccounting()">
+                            <i class="bi bi-arrow-right"></i> Заполнить по учету
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="accountingTable">
+                            <thead>
+                                <tr>
+                                    <th>№ п/п</th>
+                                    <th>ФИО заявителя</th>
+                                    <th>Номер карты</th>
+                                    <th>Вид карты</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountingBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Factual Data -->
+                <div class="tab-pane fade" id="tab-factual" role="tabpanel">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Карты по фактическому наличию</h6>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillFactualFromAccounting()">
+                                <i class="bi bi-copy"></i> Заполнить по учету
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addFactualLine()">
+                                <i class="bi bi-plus-lg"></i> Добавить строку
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="factualTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px">№ п/п</th>
+                                    <th>ФИО заявителя</th>
+                                    <th>Номер карты</th>
+                                    <th>Вид карты</th>
+                                    <th style="width:50px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="factualBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Discrepancies -->
+                <div class="tab-pane fade" id="tab-discrepancies" role="tabpanel">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Расхождения между учетом и фактом</h6>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-warning" onclick="checkDiscrepancies()">
+                                <i class="bi bi-search"></i> Проверить
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success" onclick="createIssueDocument()">
+                                <i class="bi bi-file-earmark-check"></i> Создать выдачу карт
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="createPrintDocument()">
+                                <i class="bi bi-printer"></i> Создать печать карт
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="discrepanciesTable">
+                            <thead>
+                                <tr>
+                                    <th>№ п/п</th>
+                                    <th>ФИО заявителя</th>
+                                    <th>Номер карты</th>
+                                    <th>Вид карты</th>
+                                    <th>Состояние</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discrepanciesBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-save"></i> Записать
+                </button>
+                <a href="{{ url_for('docs_journal') }}" class="btn btn-outline-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hidden fields to store data for submission -->
+<input type="hidden" name="accounting_lines" id="accounting_lines">
+<input type="hidden" name="factual_lines" id="factual_lines">
+<input type="hidden" name="discrepancies_lines" id="discrepancies_lines">
+
+<script>
+let accountingLines = [];
+let factualLines = [];
+let discrepanciesLines = [];
+
+// Load accounting data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadAccountingData();
+});
+
+function loadAccountingData() {
+    fetch('/api/cards?status=ready_to_issue')
+        .then(r => r.json())
+        .then(data => {
+            accountingLines = data.map((c, idx) => ({
+                line_no: idx + 1,
+                applicant_name: c.owner_name || '',
+                card_number: c.card_number,
+                card_type_id: c.card_type_id,
+                card_type_name: c.card_type_name
+            }));
+            // Сортировка по ФИО заявителя
+            accountingLines.sort((a, b) => {
+                const nameA = (a.applicant_name || '').toUpperCase();
+                const nameB = (b.applicant_name || '').toUpperCase();
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                return 0;
+            });
+            renderAccountingTable();
+        });
+}
+
+function renderAccountingTable() {
+    const tbody = document.getElementById('accountingBody');
+    tbody.innerHTML = '';
+    accountingLines.forEach((line, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${line.applicant_name || ''}</td>
+            <td>${line.card_number}</td>
+            <td>${line.card_type_name || ''}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function fillFromAccounting() {
+    // Copy accounting lines to factual lines
+    factualLines = accountingLines.map((line, idx) => ({
+        line_no: idx + 1,
+        applicant_name: line.applicant_name,
+        card_number: line.card_number,
+        card_type_id: line.card_type_id,
+        card_type_name: line.card_type_name
+    }));
+    // Сортировка по ФИО заявителя
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    renderFactualTable();
+    
+    // Switch to factual tab
+    const tabTrigger = new bootstrap.Tab(document.querySelector('[data-bs-target="#tab-factual"]'));
+    tabTrigger.show();
+    
+    flashMessage('Данные скопированы из учета', 'success');
+}
+
+function fillFactualFromAccounting() {
+    fillFromAccounting();
+}
+
+function addFactualLine() {
+    const newLine = {
+        line_no: factualLines.length + 1,
+        applicant_name: '',
+        card_number: '',
+        card_type_id: '',
+        card_type_name: ''
+    };
+    factualLines.push(newLine);
+    // Сортировка по ФИО заявителя после добавления строки
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    renderFactualTable();
+}
+
+function removeFactualLine(idx) {
+    if (factualLines.length > 1) {
+        factualLines.splice(idx, 1);
+        // Сортировка по ФИО заявителя после удаления строки
+        factualLines.sort((a, b) => {
+            const nameA = (a.applicant_name || '').toUpperCase();
+            const nameB = (b.applicant_name || '').toUpperCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
+        renderFactualTable();
+    }
+}
+
+function renderFactualTable() {
+    const tbody = document.getElementById('factualBody');
+    tbody.innerHTML = '';
+    factualLines.forEach((line, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td><input type="text" class="form-control form-control-sm" value="${line.applicant_name || ''}" onchange="updateFactualLine(${idx}, 'applicant_name', this.value)"></td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" value="${line.card_number}" onchange="updateFactualLine(${idx}, 'card_number', this.value); lookupCard(${idx}, this.value)">
+                    <button type="button" class="btn btn-outline-secondary" onclick="pickCardForFactual(${idx})">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </td>
+            <td><input type="text" class="form-control form-control-sm" value="${line.card_type_name || ''}" readonly></td>
+            <td><button type="button" class="btn btn-sm btn-danger" onclick="removeFactualLine(${idx})"><i class="bi bi-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateFactualLine(idx, field, value) {
+    factualLines[idx][field] = value;
+    // Сортировка по ФИО заявителя после обновления строки
+    factualLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    renderFactualTable();
+}
+
+function lookupCard(idx, cardNumber) {
+    if (!cardNumber || cardNumber.length !== 19) {
+        factualLines[idx].card_type_id = '';
+        factualLines[idx].card_type_name = '';
+        factualLines[idx].applicant_name = '';
+        renderFactualTable();
+        return;
+    }
+    fetch('/api/card/' + encodeURIComponent(cardNumber))
+        .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
+        .then(data => {
+            factualLines[idx].card_type_id = data.card_type_id || '';
+            factualLines[idx].card_type_name = data.card_type_name || '';
+            factualLines[idx].applicant_name = data.owner_name || '';
+            renderFactualTable();
+        })
+        .catch(() => {
+            factualLines[idx].card_type_id = '';
+            factualLines[idx].card_type_name = '';
+            renderFactualTable();
+        });
+}
+
+function pickCardForFactual(idx) {
+    const modal = new bootstrap.Modal(document.getElementById('cardPickModal'));
+    window.currentFactualIdx = idx;
+    loadPickCards();
+    modal.show();
+}
+
+function loadPickCards() {
+    const q = document.getElementById('pickSearch').value;
+    let url = '/api/cards?q=' + encodeURIComponent(q) + '&status=ready_to_issue';
+    
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('pickCardsBody');
+            tbody.innerHTML = '';
+            data.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${c.card_number}</td><td>${c.card_type_name}</td><td>${c.owner_name || ''}</td><td><span class="status-badge status-${c.status}">${c.status_name}</span></td>
+                <td><button class="btn btn-sm btn-primary" onclick="selectCardForFactual('${c.card_number}','${c.card_type_id}','${c.card_type_name}','${(c.owner_name || '').replace(/'/g, "\\'")}')">Выбрать</button></td>`;
+                tbody.appendChild(tr);
+            });
+        });
+}
+
+function selectCardForFactual(number, ctId, ctName, ownerName) {
+    const idx = window.currentFactualIdx;
+    factualLines[idx].card_number = number;
+    factualLines[idx].card_type_id = ctId;
+    factualLines[idx].card_type_name = ctName;
+    factualLines[idx].applicant_name = ownerName;
+    renderFactualTable();
+    bootstrap.Modal.getInstance(document.getElementById('cardPickModal')).hide();
+}
+
+function checkDiscrepancies() {
+    discrepanciesLines = [];
+    
+    // Create maps by card_number
+    const accountingMap = {};
+    accountingLines.forEach(line => {
+        accountingMap[line.card_number] = line;
+    });
+    
+    const factualMap = {};
+    factualLines.forEach(line => {
+        if (line.card_number) {
+            factualMap[line.card_number] = line;
+        }
+    });
+    
+    // Find cards in accounting but not in factual -> "Нет в наличии"
+    accountingLines.forEach(line => {
+        if (!factualMap[line.card_number]) {
+            discrepanciesLines.push({
+                applicant_name: line.applicant_name,
+                card_number: line.card_number,
+                card_type_id: line.card_type_id,
+                card_type_name: line.card_type_name,
+                state: 'missing'  // Нет в наличии
+            });
+        }
+    });
+    
+    // Find cards in factual but not in accounting -> "Излишек"
+    factualLines.forEach(line => {
+        if (line.card_number && !accountingMap[line.card_number]) {
+            discrepanciesLines.push({
+                applicant_name: line.applicant_name,
+                card_number: line.card_number,
+                card_type_id: line.card_type_id,
+                card_type_name: line.card_type_name,
+                state: 'surplus'  // Излишек
+            });
+        }
+    });
+    
+    // Сортировка по ФИО заявителя
+    discrepanciesLines.sort((a, b) => {
+        const nameA = (a.applicant_name || '').toUpperCase();
+        const nameB = (b.applicant_name || '').toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    
+    renderDiscrepanciesTable();
+    
+    // Switch to discrepancies tab
+    const tabTrigger = new bootstrap.Tab(document.querySelector('[data-bs-target="#tab-discrepancies"]'));
+    tabTrigger.show();
+    
+    flashMessage(`Найдено расхождений: ${discrepanciesLines.length}`, 'warning');
+}
+
+function renderDiscrepanciesTable() {
+    const tbody = document.getElementById('discrepanciesBody');
+    tbody.innerHTML = '';
+    discrepanciesLines.forEach((line, idx) => {
+        const tr = document.createElement('tr');
+        const stateText = line.state === 'missing' ? 'Нет в наличии' : 'Излишек';
+        const stateClass = line.state === 'missing' ? 'bg-danger' : 'bg-info';
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${line.applicant_name || ''}</td>
+            <td>${line.card_number}</td>
+            <td>${line.card_type_name || ''}</td>
+            <td><span class="badge ${stateClass}">${stateText}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function createIssueDocument() {
+    const missingCards = discrepanciesLines.filter(l => l.state === 'missing');
+    if (missingCards.length === 0) {
+        flashMessage('Нет карт со статусом "Нет в наличии"', 'info');
+        return;
+    }
+    
+    // Submit to create issue document
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/docs/inventory/create_issue';
+    
+    const dataInput = document.createElement('input');
+    dataInput.type = 'hidden';
+    dataInput.name = 'lines';
+    dataInput.value = JSON.stringify(missingCards);
+    form.appendChild(dataInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function createPrintDocument() {
+    const surplusCards = discrepanciesLines.filter(l => l.state === 'surplus');
+    if (surplusCards.length === 0) {
+        flashMessage('Нет карт со статусом "Излишек"', 'info');
+        return;
+    }
+    
+    // Submit to create print document
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/docs/inventory/create_print';
+    
+    const dataInput = document.createElement('input');
+    dataInput.type = 'hidden';
+    dataInput.name = 'lines';
+    dataInput.value = JSON.stringify(surplusCards);
+    form.appendChild(dataInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function flashMessage(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+// Document form submission
+document.getElementById('inventoryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    formData.set('accounting_lines', JSON.stringify(accountingLines));
+    formData.set('factual_lines', JSON.stringify(factualLines));
+    formData.set('discrepancies_lines', JSON.stringify(discrepanciesLines));
+    
+    fetch(window.location.pathname, {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => {
+        if (r.ok) {
+            window.location.href = '/docs';
+        } else {
+            return r.text().then(text => { throw new Error(text); });
+        }
+    })
+    .catch(err => {
+        flashMessage('Ошибка сохранения: ' + err.message, 'danger');
+    });
+});
+</script>
+
+<!-- Card picker modal (reuse from create.html) -->
+<div class="modal fade" id="cardPickModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Подбор карты</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="pickSearch" class="form-control mb-2" placeholder="Поиск по номеру..." oninput="loadPickCards()">
+                <div class="table-responsive pick-modal">
+                    <table class="table table-hover table-sm">
+                        <thead><tr><th>Номер</th><th>Вид</th><th>Владелец</th><th>Статус</th><th></th></tr></thead>
+                        <tbody id="pickCardsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

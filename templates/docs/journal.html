@@ -14,6 +14,7 @@
             <a href="?type=transfer_mfc" class="btn btn-sm btn-outline-secondary {% if doc_type=='transfer_mfc' %}active{% endif %}">В МФЦ</a>
             <a href="?type=return_mfc" class="btn btn-sm btn-outline-secondary {% if doc_type=='return_mfc' %}active{% endif %}">Из МФЦ</a>
             <a href="?type=transfer_region" class="btn btn-sm btn-outline-secondary {% if doc_type=='transfer_region' %}active{% endif %}">В регион</a>
+            <a href="?type=inventory" class="btn btn-sm btn-outline-secondary {% if doc_type=='inventory' %}active{% endif %}">Инвентаризация</a>
         </div>
         <div class="dropdown">
             <button class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
@@ -27,6 +28,7 @@
                 <li><a class="dropdown-item" href="{{ url_for('doc_create', doc_type='transfer_mfc') }}">Передача в МФЦ</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('doc_create', doc_type='return_mfc') }}">Возврат из МФЦ</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('doc_create', doc_type='transfer_region') }}">Передача в другой регион</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('doc_create', doc_type='inventory') }}">Инвентаризация карт к выдаче</a></li>
             </ul>
         </div>
         {% else %}

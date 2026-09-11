@@ -45,7 +45,8 @@ DOC_PREFIXES = {
     "transfer_mfc": "ПМФЦ",
     "return_mfc": "ВМФЦ",
     "defect": "Брак",
-    "transfer_region": "ПРег"
+    "transfer_region": "ПРег",
+    "inventory": "И"
 }
 
 # ============== AUTH DECORATORS ==============
@@ -598,6 +599,13 @@ def doc_create(doc_type):
     if is_issue_user() and doc_type != "issue":
         flash("Доступ запрещен", "danger")
         return redirect(url_for("docs_journal"))
+
+    # Special handling for inventory document type
+    if doc_type == "inventory":
+        return render_template("docs/inventory.html",
+                               doc_type=doc_type,
+                               doc_type_name=DOCUMENT_TYPES[doc_type],
+                               current_date=datetime.now().strftime("%Y-%m-%d"))
 
     if request.method == "POST" and "doc_date" in request.form:
         lines = []

@@ -582,6 +582,38 @@ def get_summary_report(start_date, end_date):
     return report
 
 
+def get_unissued_cards_report():
+    """
+    Report: Остатки не выданных карт (статус 'ready_to_issue').
+    Содержит: ФИО владельца, номер карты, вид карты.
+    Сортировка по ФИО владельца.
+    """
+    cards = load_all("cards")
+    # Filter cards with status 'ready_to_issue'
+    ready_cards = [c for c in cards if c.get("status") == "ready_to_issue"]
+    
+    report = []
+    for card in ready_cards:
+        owner_id = card.get("owner_id", "")
+        owner = get_owner_by_id(owner_id) if owner_id else None
+        owner_name = owner.get("full_name", "Не указан") if owner else "Не указан"
+        
+        ct_id = card.get("card_type_id", "")
+        ct = get_card_type_by_id(ct_id)
+        card_type_name = ct.get("name", "Не указан") if ct else "Не указан"
+        
+        report.append({
+            "owner_name": owner_name,
+            "card_number": card.get("card_number", ""),
+            "card_type_name": card_type_name
+        })
+    
+    # Sort by owner name (ФИО)
+    report.sort(key=lambda x: x["owner_name"])
+    
+    return report
+
+
 def get_cards_as_of_report(as_of_date=None):
     """
     Report: карты на число.

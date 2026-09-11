@@ -29,7 +29,7 @@ from app.models import (
     get_mfcs, get_mfc_by_id,
     get_employees, get_employee_by_id, get_employee_by_login, check_permission,
     get_documents, get_document_by_id, post_document, delete_document,
-    get_cards_report_as_of, get_period_report, get_period_report_detail, get_edo_report, get_summary_report, get_stock_report, get_cards_as_of_report,
+    get_cards_report_as_of, get_period_report, get_period_report_detail, get_edo_report, get_summary_report, get_stock_report, get_cards_as_of_report, get_unissued_cards_report,
     CARD_STATUSES, DOCUMENT_TYPES, REPORT_STATUSES, log_action, now_iso
 )
 from app.card_reader import read_card_number, test_reader_connection, get_available_readers
@@ -1338,6 +1338,14 @@ def report_stock():
     return render_template("reports/stock.html", report=report, total_print=total_print, total_issue=total_issue)
 
 
+@app.route("/reports/unissued_cards")
+@login_required
+def report_unissued_cards():
+    """Report: Остатки не выданных карт (статус 'Готова к выдаче')."""
+    report = get_unissued_cards_report()
+    return render_template("reports/unissued_cards.html", report=report)
+
+
 @app.route("/reports/cards_as_of")
 @login_required
 def report_cards_as_of_new():
@@ -1531,6 +1539,31 @@ def export_stock():
     wb.save(output)
     output.seek(0)
     return send_file(output, download_name="stock_report.xlsx", as_attachment=True)
+
+
+@app.route("/reports/export/unissued_cards")
+@login_required
+def export_unissued_cards():
+    report = get_unissued_cards_report()
+    try:
+        import openpyxl
+    except ImportError:
+        flash("openpyxl не установлен", "danger")
+        return redirect(url_for("report_unissued_cards"))
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Остатки не выданных карт"
+    ws.append(["ФИО владельца", "Номер карты", "Вид карты"])
+    for row in report:
+        ws.append([
+            row.get("owner_name", ""),
+            row.get("card_number", ""),
+            row.get("card_type_name", "")
+        ])
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output, download_name="unissued_cards_report.xlsx", as_attachment=True)
 
 
 # ============== ACTION LOG ==============

@@ -130,7 +130,7 @@
         <p><span class="label">Отправитель:</span> {{ our_org }}</p>
         <p><span class="label">Подготовил:</span> {{ employee.full_name if employee else '______________________________' }}</p>
         <p><span class="label">Услуга:</span> выдача электронного проездного билета отдельным категориям граждан в Краснодарском крае</p>
-        <p><span class="label">Приемщик:</span> {{ mfc.name if mfc else '______________________________' }}{% if mfc and mfc.code %}, {{ mfc.code }}{% endif %}</p>
+        <p><span class="label">Приемщик:</span> {{ mfc.name if mfc else '______________________________' }}</p>
     </div>
 
     <table>
@@ -164,6 +164,7 @@
     <div class="signatures">
         <div class="signature-block">
             <p><strong>Подпись отправителя</strong></p>
+            <p>{{ employee.full_name if employee else '' }}</p>
             <div class="signature-line">/ __________________</div>
         </div>
         <div class="signature-block">
